@@ -16,12 +16,7 @@ Cookie 必须同时包含 `gld:sess` 和 `gld:sess.sig`。只保留旧的 `koa:s
 
 网站登录要邮箱验证码，脚本不能自己造一个新登录。本机 Chrome 登录一次之后，登录状态会留在单独的浏览器配置里。之后每天自动读取 Cookie，完成签到，并写回 GitHub。
 
-```bash
-python -m pip install playwright
-python sync_cookie.py
-```
-
-弹出的窗口里登录 https://glados.cloud 。成功后脚本会签到，并把 `GLADOS_COOKIE` 和 `GLADOS_USER_AGENT` 写入 GitHub Actions。同时会创建本机任务「GLaDOS每日签到」，每天 9:00 再跑一次。
+双击 `获取最新Cookie.bat`。第一次会弹出浏览器，登录 https://glados.cloud 即可。成功后脚本会签到，并把 `GLADOS_COOKIE` 和 `GLADOS_USER_AGENT` 写入 GitHub Actions。同时会创建本机任务「GLaDOS每日签到」，每天 9:00 再跑一次。以后 Cookie 过期，再双击一次这个文件。
 
 登录过期时，再执行一次不带参数的 `python sync_cookie.py`。
 

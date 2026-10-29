@@ -114,7 +114,13 @@ def message_of(body):
 
 def is_success(body):
     text = message_of(body).lower()
-    if "checkin!" in text or "checkin repeats" in text:
+    done_markers = (
+        "checkin!",
+        "checkin repeats",
+        "observation logged",
+        "return tomorrow for more points",
+    )
+    if any(marker in text for marker in done_markers):
         return True
     if "repeat" in text and "tomorrow" in text:
         return True
