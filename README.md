@@ -12,15 +12,18 @@
 
 Cookie 必须同时包含 `gld:sess` 和 `gld:sess.sig`。只保留旧的 `koa:sess` 时，接口会返回「没有权限」。
 
-## 获取 Cookie 和 User-Agent
+## 自动获取 Cookie
 
-1. 用 Chrome 或 Edge 打开 https://glados.cloud ，退出后重新登录。
-2. 进入 https://glados.cloud/console/checkin ，按 F12，打开 Network。
-3. 刷新页面，点开一次成功的 `/api/user/status` 请求。
-4. 在 Request Headers 里复制整行 `Cookie`。确认里面同时有 `gld:sess=` 和 `gld:sess.sig=`。
-5. 地址栏打开 `chrome://version` 或 `edge://version`，复制「用户代理」的完整内容。
+网站登录要邮箱验证码，脚本不能自己造一个新登录。本机 Chrome 登录一次之后，登录状态会留在单独的浏览器配置里。之后每天自动读取 Cookie，完成签到，并写回 GitHub。
 
-把 Cookie 存进 Secret `GLADOS_COOKIE`，把用户代理存进 Secret `GLADOS_USER_AGENT`。浏览器大版本更新后，如果再次出现「设备不一致」，重新登录并同时更新这两项。
+```bash
+python -m pip install playwright
+python sync_cookie.py
+```
+
+弹出的窗口里登录 https://glados.cloud 。成功后脚本会签到，并把 `GLADOS_COOKIE` 和 `GLADOS_USER_AGENT` 写入 GitHub Actions。同时会创建本机任务「GLaDOS每日签到」，每天 9:00 再跑一次。
+
+登录过期时，再执行一次不带参数的 `python sync_cookie.py`。
 
 ## GitHub Actions
 
