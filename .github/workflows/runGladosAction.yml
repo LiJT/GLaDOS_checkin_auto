@@ -3,8 +3,10 @@ name: 开始每日签到
 on:
   workflow_dispatch:
   schedule:
-    # UTC 1点30分（北京时间 9点30分）
+    # 北京时间 9:30
     - cron: "30 1 * * *"
+    # 北京时间 21:30，作为网络抖动时的第二次机会
+    - cron: "30 13 * * *"
   watch:
     types: [started]
 
@@ -22,7 +24,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
       - name: Run checkin
-        run: python glados.py
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 90
+          command: python glados.py
         env:
           GLADOS_COOKIE: ${{ secrets.GLADOS_COOKIE }}
           GLADOS_USER_AGENT: ${{ secrets.GLADOS_USER_AGENT }}

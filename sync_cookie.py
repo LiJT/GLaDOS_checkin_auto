@@ -127,42 +127,83 @@ def update_secret(name, value):
 
 def install_daily_task():
     HOME.mkdir(parents=True, exist_ok=True)
+    script = Path(__file__).resolve()
     runner = HOME / "run_checkin.cmd"
     runner.write_text(
         "\r\n".join(
             [
                 "@echo off",
-                f'"{sys.executable}" "{Path(__file__).resolve()}" --headless',
+                "chcp 65001 >nul",
+                f'cd /d "{script.parent}"',
+                f'"{sys.executable}" "{script}" --headless >> "{HOME / "sync.log"}" 2>&1',
                 "",
             ]
         ),
         encoding="utf-8",
     )
+    command = str(runner)
+    xml = f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>GLaDOS daily check-in and cookie refresh</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2026-10-29T09:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+    <CalendarTrigger>
+      <StartBoundary>2026-10-29T21:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <WakeToRun>true</WakeToRun>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <ExecutionTimeLimit>PT1H</ExecutionTimeLimit>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{command}</Command>
+      <WorkingDirectory>{script.parent}</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
+"""
+    xml_path = HOME / "task.xml"
+    xml_path.write_text(xml, encoding="utf-16")
     completed = subprocess.run(
-        [
-            "schtasks",
-            "/Create",
-            "/F",
-            "/TN",
-            TASK_NAME,
-            "/SC",
-            "DAILY",
-            "/ST",
-            "09:00",
-            "/RL",
-            "LIMITED",
-            "/TR",
-            str(runner),
-        ],
+        ["schtasks", "/Create", "/F", "/TN", TASK_NAME, "/XML", str(xml_path)],
         capture_output=True,
         text=True,
         check=False,
     )
     if completed.returncode != 0:
         detail = (completed.stderr or completed.stdout or "").strip()
-        log(f"每天 9:00 的本机定时任务没有建成: {detail}")
+        log(f"本机定时任务没有建成: {detail}")
         return False
-    log("已创建本机定时任务，每天 9:00 自动签到并更新 Cookie")
+    log("已创建本机定时任务：每天 9:00 和 21:00，休眠错过也会补跑")
     return True
 
 

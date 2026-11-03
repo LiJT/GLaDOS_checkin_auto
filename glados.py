@@ -13,7 +13,8 @@ import requests
 BASE = "https://glados.cloud"
 CHECKIN_URL = BASE + "/api/user/checkin"
 STATUS_URL = BASE + "/api/user/status"
-TIMEOUT = 20
+TIMEOUT = 45
+MAX_ATTEMPTS = 5
 DEFAULT_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -127,6 +128,20 @@ def is_success(body):
     return isinstance(body, dict) and body.get("code") == 0 and "checkin" in text
 
 
+def is_auth_failure(body):
+    if not isinstance(body, dict):
+        return False
+    text = message_of(body).lower()
+    reason = str(body.get("reason") or "").lower()
+    return (
+        body.get("code") in (-2, 4)
+        or reason == "device-mismatch"
+        or "没有权限" in message_of(body)
+        or "permission" in text
+        or "unauthorized" in text
+    )
+
+
 def describe(body, error):
     if error:
         return error
@@ -161,13 +176,18 @@ def describe(body, error):
 
 
 def account_status(headers):
-    body, error = request_json("GET", STATUS_URL, headers)
-    data = body.get("data") if isinstance(body, dict) else None
-    if error or not isinstance(data, dict):
-        return "?", "?"
-    email = str(data.get("email") or "?")
-    days = str(data.get("leftDays", "?")).split(".")[0]
-    return email, days
+    for attempt in range(1, 4):
+        body, error = request_json("GET", STATUS_URL, headers)
+        data = body.get("data") if isinstance(body, dict) else None
+        if isinstance(data, dict):
+            email = str(data.get("email") or "?")
+            days = str(data.get("leftDays", "?")).split(".")[0]
+            return email, days
+        if error:
+            log(f"查询状态第 {attempt} 次失败: {error}")
+        if attempt < 3:
+            time.sleep(3 * attempt)
+    return "?", "?"
 
 
 def pushplus(token, title, content):
@@ -206,22 +226,27 @@ def checkin_account(index, cookie):
     headers = browser_headers(cookie)
     body = None
     error = None
-    for attempt in range(1, 3):
+    for attempt in range(1, MAX_ATTEMPTS + 1):
         body, error = request_json(
             "POST", CHECKIN_URL, headers, {"token": "glados.cloud"}
         )
         if error:
-            log(f"账号 {index}: 第 {attempt} 次请求失败，{error}")
+            log(f"账号 {index}: 第 {attempt}/{MAX_ATTEMPTS} 次请求失败，{error}")
         elif is_success(body):
             break
-        elif isinstance(body, dict) and (
-            body.get("code") in (-2, 4) or body.get("reason") == "device-mismatch"
-        ):
+        elif is_auth_failure(body):
+            log(f"账号 {index}: 认证失败，停止重试")
             break
-        elif attempt == 1:
-            log(f"账号 {index}: 结果不明确，5 秒后重试")
-        if attempt == 1:
-            time.sleep(5)
+        else:
+            log(
+                f"账号 {index}: 第 {attempt}/{MAX_ATTEMPTS} 次结果不明确，"
+                f"{describe(body, None)}"
+            )
+
+        if attempt < MAX_ATTEMPTS and not is_auth_failure(body):
+            wait = min(60, 5 * (2 ** (attempt - 1)))
+            log(f"账号 {index}: {wait} 秒后重试")
+            time.sleep(wait)
 
     email, days = account_status(headers)
     result = describe(body, error)

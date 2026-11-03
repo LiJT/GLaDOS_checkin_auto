@@ -16,16 +16,14 @@ Cookie 必须同时包含 `gld:sess` 和 `gld:sess.sig`。只保留旧的 `koa:s
 
 网站登录要邮箱验证码，脚本不能自己造一个新登录。本机 Chrome 登录一次之后，登录状态会留在单独的浏览器配置里。之后每天自动读取 Cookie，完成签到，并写回 GitHub。
 
-双击 `获取最新Cookie.bat`。第一次会弹出浏览器，登录 https://glados.cloud 即可。成功后脚本会签到，并把 `GLADOS_COOKIE` 和 `GLADOS_USER_AGENT` 写入 GitHub Actions。同时会创建本机任务「GLaDOS每日签到」，每天 9:00 再跑一次。以后 Cookie 过期，再双击一次这个文件。
-
-登录过期时，再执行一次不带参数的 `python sync_cookie.py`。
+双击 `获取最新Cookie.bat`。第一次会弹出浏览器，登录 https://glados.cloud 即可。成功后脚本会签到，并把 `GLADOS_COOKIE` 和 `GLADOS_USER_AGENT` 写入 GitHub Actions。同时会创建本机任务「GLaDOS每日签到」，每天 9:00 和 21:00 各跑一次；电脑当时休眠的话，醒来后也会补跑。以后 Cookie 过期，再双击一次这个文件。
 
 ## GitHub Actions
 
 1. Fork 本仓库。
 2. 打开 Settings → Secrets and variables → Actions，添加上面的 Secret。
 3. 打开 Actions，启用工作流，并手动运行一次「开始每日签到」。
-4. 成功后会在每天北京时间 9:30 自动运行。
+4. 每天北京时间 9:30 和 21:30 各跑一次。签到脚本遇到超时会自动加重试，整次任务失败还会再重试 2 遍。
 
 ## 青龙面板
 
